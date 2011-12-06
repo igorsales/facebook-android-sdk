@@ -46,6 +46,8 @@ import android.webkit.CookieSyncManager;
  *
  */
 public final class Util {
+	
+	public static final String PARAM_FOLLOW_REDIRECTS = "PARAM_FOLLOW_REDIRECTS";
 
     /**
      * Generate the multi-part post body providing the parameters and boundary
@@ -141,6 +143,13 @@ public final class Util {
 
         OutputStream os;
 
+        boolean followsRedirects = HttpURLConnection.getFollowRedirects();
+        boolean shouldFollowRedirects = params.getBoolean(PARAM_FOLLOW_REDIRECTS, true);
+        if (!shouldFollowRedirects) {
+        	HttpURLConnection.setFollowRedirects(false);
+        }
+        params.remove(PARAM_FOLLOW_REDIRECTS);
+
         if (method.equals("GET")) {
             url = url + "?" + encodeUrl(params);
         }
@@ -197,10 +206,18 @@ public final class Util {
 
         String response = "";
         try {
-            response = read(conn.getInputStream());
+        	if (!shouldFollowRedirects && conn.getResponseCode() == 302) {
+        		response = conn.getHeaderField("Location");
+        	} else {
+        		response = read(conn.getInputStream());
+        	}
         } catch (FileNotFoundException e) {
             // Error Stream contains JSON that we can parse to a FB error
             response = read(conn.getErrorStream());
+        }
+        
+        if (!shouldFollowRedirects) {
+        	HttpURLConnection.setFollowRedirects(followsRedirects);
         }
         return response;
     }
